@@ -54,6 +54,7 @@ type App struct {
 	Warmup               *exchanger.WarmupService
 	Isolation            *isolation.Service
 	IsolationCoordinator *isolation.Coordinator
+	IsolationPlans       *isolation.PlanService
 	Targets              *station.TargetService
 	Planner              *dispatch.Planner
 	Publisher            *dispatch.Publisher
@@ -107,6 +108,8 @@ func NewApp(dataDirectory string) (*App, error) {
 	relief := valve.NewReliefService(2 * time.Millisecond)
 	boundaries := valve.NewBoundaryService()
 	isolationService := isolation.NewService(topology, networkState, relief, boundaries, recorder)
+	protectionService := protection.NewService()
+	isolationPlans := isolation.NewPlanService(topology, networkState, networkRegistry, relief, boundaries, protectionService, recorder, 0.05)
 	targets := station.NewTargetService(stations)
 	planner := dispatch.NewPlanner(targets)
 	dispatchBuffer := dispatch.NewBuffer()
@@ -119,10 +122,11 @@ func NewApp(dataDirectory string) (*App, error) {
 		ValveOperations: valveOperations, Relief: relief, Boundaries: boundaries, Primary: primary,
 		Telemetry: telemetry.NewSeries(128), FlowReceipts: flowReceipts,
 		Balancer: hydraulic.NewBalancer(0.28), LeakDetector: hydraulic.NewLeakDetector(),
-		Protection: protection.NewService(), Latches: protection.NewLatchStore(snapshots),
+		Protection: protectionService, Latches: protection.NewLatchStore(snapshots),
 		Frost: protection.NewFrostProtection(valveOperations), Circulation: circulation, Antifreeze: antifreeze,
 		Warmup: warmup, Isolation: isolationService, IsolationCoordinator: isolation.NewCoordinator(isolationService),
-		Targets: targets, Planner: planner, DispatchBuffer: dispatchBuffer, StationCommands: stationCommands,
+		IsolationPlans: isolationPlans,
+		Targets:        targets, Planner: planner, DispatchBuffer: dispatchBuffer, StationCommands: stationCommands,
 		Manual: station.NewManualService(valveOperations), Maintenance: station.NewMaintenanceService(stations, snapshots),
 	}
 	app.SnapshotsBuilder = telemetry.NewSnapshotBuilder(app.Telemetry)

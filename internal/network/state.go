@@ -18,15 +18,18 @@ const (
 )
 
 type Zone struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Phase            Phase     `json:"phase"`
-	PumpStage        int       `json:"pump_stage"`
-	BypassOpen       bool      `json:"bypass_open"`
-	SupplyPressure   float64   `json:"supply_pressure"`
-	ReturnPressure   float64   `json:"return_pressure"`
-	RecoveryRevision uint64    `json:"recovery_revision"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               string  `json:"id"`
+	Name             string  `json:"name"`
+	Phase            Phase   `json:"phase"`
+	PumpStage        int     `json:"pump_stage"`
+	BypassOpen       bool    `json:"bypass_open"`
+	SupplyPressure   float64 `json:"supply_pressure"`
+	ReturnPressure   float64 `json:"return_pressure"`
+	RecoveryRevision uint64  `json:"recovery_revision"`
+	// PartitionRevision 标识当前分区（拓扑/边界划分）版本。任何改变分区边界的操作
+	// 都会使它递增，从而冻结仍绑定旧修订的隔离计划。
+	PartitionRevision uint64    `json:"partition_revision"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 func (z Zone) DifferentialPressure() float64 {
@@ -88,6 +91,15 @@ func (s *State) Activate(zoneID string, revision uint64) (Zone, error) {
 			return fmt.Errorf("zone %s cannot activate from %s", zoneID, zone.Phase)
 		}
 		zone.Phase = PhaseActive
+		return nil
+	})
+}
+
+// BumpPartitionRevision 在分区边界（拓扑、边界阀划分）发生变化时调用，
+// 使绑定旧分区修订的在途隔离计划无法继续推进。返回更新后的分区。
+func (s *State) BumpPartitionRevision(zoneID string) (Zone, error) {
+	return s.Update(zoneID, func(zone *Zone) error {
+		zone.PartitionRevision++
 		return nil
 	})
 }

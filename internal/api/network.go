@@ -88,7 +88,7 @@ func (a *App) overview(w http.ResponseWriter, _ *http.Request) {
 	primaryAdmission, primaryOpen := a.Primary.Admission("xincheng", "B")
 	writeJSON(w, http.StatusOK, map[string]any{
 		"zones": a.Network.List(), "stations": a.Stations.List(), "incidents": a.Protection.List(),
-		"isolations": a.Isolation.List(), "plans": a.Planner.Plans(), "audit_summary": auditSummary,
+		"isolations": a.Isolation.List(), "isolation_plans": a.IsolationPlans.List(), "plans": a.Planner.Plans(), "audit_summary": auditSummary,
 		"event_count": eventCount, "hydraulic_threshold": a.Balancer.Threshold(),
 		"interlocks": interlocks, "pump_commands": pumpCommands, "sections": sections,
 		"station_details": stationDetails, "hydraulic_incidents": a.LeakDetector.Incidents(),
