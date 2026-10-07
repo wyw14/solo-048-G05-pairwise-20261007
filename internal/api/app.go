@@ -54,6 +54,7 @@ type App struct {
 	Warmup               *exchanger.WarmupService
 	Isolation            *isolation.Service
 	IsolationCoordinator *isolation.Coordinator
+	IsolationPlans       *isolation.PlanService
 	Targets              *station.TargetService
 	Planner              *dispatch.Planner
 	Publisher            *dispatch.Publisher
@@ -128,6 +129,7 @@ func NewApp(dataDirectory string) (*App, error) {
 	app.SnapshotsBuilder = telemetry.NewSnapshotBuilder(app.Telemetry)
 	app.LeakProtection = protection.NewLeakProtection(app.LeakDetector)
 	app.ExchangerSwitch = exchanger.NewSwitchService(stations, flowReceipts, primary)
+	app.IsolationPlans = isolation.NewPlanService(topology, networkState, networkRegistry, relief, boundaries, app.Protection, recorder)
 	app.Publisher = dispatch.NewPublisher(planner, targets, recorder)
 	app.Reconnector = recovery.NewReconnector(dispatchBuffer, stations, stationCommands, recorder)
 	app.ZoneRecovery = recovery.NewZoneRecovery(networkState, networkRegistry, warmup, pressure)

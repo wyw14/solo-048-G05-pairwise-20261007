@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"heatpulse/internal/network"
 	"heatpulse/internal/telemetry"
 )
 
@@ -18,7 +19,44 @@ func (a *App) recordTelemetry(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
+	if sample.Kind == telemetry.KindSupplyPressure || sample.Kind == telemetry.KindReturnPressure {
+		a.syncZonePressure(sample.StationID)
+	}
 	writeJSON(w, http.StatusAccepted, sample)
+}
+
+// syncZonePressure folds the latest station pressure readings into the zone
+// aggregate so that pressure-driven safeguards (e.g. isolation plan freezes)
+// observe runtime changes.
+func (a *App) syncZonePressure(stationID string) {
+	station, ok := a.Stations.Get(stationID)
+	if !ok {
+		return
+	}
+	var supplySum, returnSum float64
+	var supplyCount, returnCount int
+	for _, item := range a.Stations.List() {
+		if item.ZoneID != station.ZoneID {
+			continue
+		}
+		if sample, ok := a.Telemetry.Latest(item.ID, telemetry.KindSupplyPressure); ok {
+			supplySum += sample.Value
+			supplyCount++
+		}
+		if sample, ok := a.Telemetry.Latest(item.ID, telemetry.KindReturnPressure); ok {
+			returnSum += sample.Value
+			returnCount++
+		}
+	}
+	_, _ = a.Network.Update(station.ZoneID, func(zone *network.Zone) error {
+		if supplyCount > 0 {
+			zone.SupplyPressure = supplySum / float64(supplyCount)
+		}
+		if returnCount > 0 {
+			zone.ReturnPressure = returnSum / float64(returnCount)
+		}
+		return nil
+	})
 }
 
 func (a *App) evaluateHydraulic(w http.ResponseWriter, r *http.Request) {
